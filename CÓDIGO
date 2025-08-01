@@ -1,0 +1,28 @@
+/*
+23143
+Paulina Martínez
+Electrónica digital 2
+Sección 10
+Laboratorio #2
+*/
+#include <Arduino.h>
+#include<stdint.h>
+
+//Definición de variables
+//Leds para modo binario
+#define LED_V 27
+#define LED_R 26
+#define LED_A 12
+#define LED_B 14
+//LEDS para timer
+#define LED1 15
+#define LED2 2
+#define LED3 0
+#define LED4 4
+//LED de alarma
+#define LEDALARMA 13
+//Botones y touch
+//TOUCH EN EL G32 (touchRead(32))
+#define botonmas  5//pull up interno
+#define botonmenos 21 //pull down interno
+#define botonrestart 32 //pull down interno
