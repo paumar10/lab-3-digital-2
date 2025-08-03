@@ -3,26 +3,184 @@
 Paulina Martínez
 Electrónica digital 2
 Sección 10
-Laboratorio #2
+Laboratorio #3
 */
-#include <Arduino.h>
-#include<stdint.h>
 
-//Definición de variables
-//Leds para modo binario
+//Librerías para el código
+#include <Arduino.h>
+#include <stdint.h>
+
+//Definición de leds para modo automático
 #define LED_V 27
 #define LED_R 26
 #define LED_A 12
 #define LED_B 14
-//LEDS para timer
+//Definición de leds para el timer
 #define LED1 15
 #define LED2 2
 #define LED3 0
 #define LED4 4
-//LED de alarma
+//Led de alarma
 #define LEDALARMA 13
-//Botones y touch
-//TOUCH EN EL G32 (touchRead(32))
-#define botonmas  5//pull up interno
-#define botonmenos 21 //pull down interno
-#define botonrestart 32 //pull down interno
+//Definición de botones
+#define botonmas 5 // pull up interno
+#define botonmenos 21 // pull down interno
+#define botonrestart 32 // touchRead
+
+//Definición de variables globales
+volatile uint32_t contador = 0; //Contador automático: controlado por botones
+volatile uint32_t contador_timer = 0; //Contador del timer
+volatile bool maspresionado = false; //Antirrebote para los botones
+volatile bool menospresionado = false;
+const int maximobinario = 15; //Modocircular de los botones
+const int minimo = 0;
+const int act_touch = 40; //Mínimo para que se active el touch
+bool estadoalarma = false; //Activación de la alarma 
+bool coincidencia = false;
+
+//Definición del timer
+hw_timer_t *timer0 = NULL;
+
+//Estados anteriores para los botones, que serán útiles para el antirrebote
+volatile uint32_t lastmas = 0;
+volatile uint32_t lastmenos = 0;
+volatile uint32_t lasttouch = 0;
+volatile uint32_t lasttimer = 0;
+const long tiempo = 150;
+
+//Prototipos de funciones
+void leds();
+void initTMR0();
+void IRAM_ATTR botonmas_ISR();
+void IRAM_ATTR botonmenos_ISR();
+void IRAM_ATTR timer0_ISR();
+void initbotonmas();
+void initbotonmenos();
+
+void setup() {
+  //Inicio de comunicación serial
+  Serial.begin(115200);
+
+  //Definición de los pines de botones
+  pinMode(botonmas, INPUT_PULLUP);
+  pinMode(botonmenos, INPUT_PULLDOWN);
+
+  //Definición de los pines de leds
+  pinMode(LED_V, OUTPUT);
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_A, OUTPUT);
+  pinMode(LED_B, OUTPUT);
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  pinMode(LED4, OUTPUT);
+  pinMode(LEDALARMA, OUTPUT);
+
+  //Inicializar de leds
+  leds();
+
+  //Configuración de interrupciones para los botones
+  initbotonmas();
+  initbotonmenos();
+
+  //Inicializar timer
+  initTMR0();
+}
+
+void loop() {
+  //Lectura del touch con antirrebote
+  uint32_t valor = touchRead(botonrestart);
+  uint32_t tiempoactual0 = millis();
+  if (valor < act_touch && (tiempoactual0 - lasttouch) > tiempo) {
+    contador_timer = 0;
+    lasttouch = tiempoactual0;
+    //Actualización de leds
+    leds();
+  }
+
+  //Lectura de botón de aumento con antirrebote incluido en el ISR
+  if (maspresionado) {
+    maspresionado = false;
+    //Actualización de leds
+    leds();
+  }
+  //Lectura de botón de aumento con antirrebote incluido en el ISR
+  if (menospresionado) {
+    menospresionado = false;
+    //Actualización de leds
+    leds();
+  }
+  //Condición de alarma cuando se igualan los timers
+  if (contador_timer == contador) {
+    estadoalarma=!estadoalarma;
+    digitalWrite(LEDALARMA, estadoalarma);
+    contador_timer = 0;
+    coincidencia=true;
+  }
+  if (contador_timer!=contador){
+    coincidencia=false;
+  }
+}
+
+//Función de encendido de leds, tanto del contador automático como del timer
+void leds() {
+  digitalWrite(LED_A, bitRead(contador, 0));
+  digitalWrite(LED_V, bitRead(contador, 1));
+  digitalWrite(LED_B, bitRead(contador, 2));
+  digitalWrite(LED_R, bitRead(contador, 3));
+
+  digitalWrite(LED1, bitRead(contador_timer, 0));
+  digitalWrite(LED2, bitRead(contador_timer, 1));
+  digitalWrite(LED3, bitRead(contador_timer, 2));
+  digitalWrite(LED4, bitRead(contador_timer, 3));
+}
+
+//Función del timer
+void initTMR0() {
+  timer0 = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer0, &timer0_ISR, true);
+  timerAlarmWrite(timer0, 250000, true); //cambio del contador cada 250 ms
+  timerAlarmEnable(timer0);
+}
+
+//Lectura de botones con el ISR
+void initbotonmas() {
+  attachInterrupt(digitalPinToInterrupt(botonmas), botonmas_ISR, FALLING); //falling porque es pull up
+}
+
+void initbotonmenos() {
+  attachInterrupt(digitalPinToInterrupt(botonmenos), botonmenos_ISR, RISING); //rising porque es pull down
+}
+
+//ISR boton de aumento
+void IRAM_ATTR botonmas_ISR() {
+  uint32_t tiempoactual = millis();
+  if (tiempoactual - lastmas > tiempo) {
+    contador++;
+    if (contador > maximobinario) contador = minimo;
+    maspresionado = true;
+    lastmas = tiempoactual;
+  }
+}
+
+//ISR boton de decremento
+void IRAM_ATTR botonmenos_ISR() {
+  uint32_t tiempoactual2 = millis();
+  if (tiempoactual2 - lastmenos > tiempo) {
+    contador--;
+    if (contador < minimo) contador = maximobinario;
+    menospresionado = true;
+    lastmenos = tiempoactual2;
+  }
+}
+
+//ISR del timer
+void IRAM_ATTR timer0_ISR() {
+  uint32_t tiempoactual3 = millis();
+  if (tiempoactual3 - lasttimer > tiempo) {
+    contador_timer++;
+    if (contador_timer > maximobinario) contador_timer = minimo;
+      leds();
+    lasttimer = tiempoactual3;
+  }
+}
