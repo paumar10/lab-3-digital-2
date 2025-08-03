@@ -10,7 +10,7 @@ Laboratorio #3
 #include <Arduino.h>
 #include <stdint.h>
 
-//Definición de leds para modo automático
+//Definición de leds para modo manual
 #define LED_V 27
 #define LED_R 26
 #define LED_A 12
@@ -28,11 +28,11 @@ Laboratorio #3
 #define botonrestart 32 // touchRead
 
 //Definición de variables globales
-volatile uint32_t contador = 0; //Contador automático: controlado por botones
+volatile uint32_t contador = 0; //Contador manual: controlado por botones
 volatile uint32_t contador_timer = 0; //Contador del timer
 volatile bool maspresionado = false; //Antirrebote para los botones
 volatile bool menospresionado = false;
-const int maximobinario = 15; //Modocircular de los botones
+const int maximobinario = 15; //Modo circular de los botones
 const int minimo = 0;
 const int act_touch = 40; //Mínimo para que se active el touch
 bool estadoalarma = false; //Activación de la alarma 
@@ -88,7 +88,7 @@ void setup() {
 }
 
 void loop() {
-  //Lectura del touch con antirrebote
+  //Lectura del touch con antirrebote y reinicio del contador del timer
   uint32_t valor = touchRead(botonrestart);
   uint32_t tiempoactual0 = millis();
   if (valor < act_touch && (tiempoactual0 - lasttouch) > tiempo) {
@@ -122,7 +122,7 @@ void loop() {
   }
 }
 
-//Función de encendido de leds, tanto del contador automático como del timer
+//Función de encendido de leds, tanto del contador manual como del timer
 void leds() {
   digitalWrite(LED_A, bitRead(contador, 0));
   digitalWrite(LED_V, bitRead(contador, 1));
